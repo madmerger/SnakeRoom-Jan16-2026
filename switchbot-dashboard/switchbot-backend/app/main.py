@@ -32,6 +32,7 @@ METER_DEVICE_TYPES = ["Meter", "MeterPlus", "WoIOSensor", "Meter Plus (JP)", "Me
 class TimeScale(str, Enum):
     HOUR = "hour"
     DAY = "day"
+    WEEK = "week"
     MONTH = "month"
     YEAR = "year"
 
@@ -284,6 +285,8 @@ async def get_meter_history(device_id: str, time_scale: TimeScale = TimeScale.HO
         cutoff = now.timestamp() - 3600
     elif time_scale == TimeScale.DAY:
         cutoff = now.timestamp() - 86400
+    elif time_scale == TimeScale.WEEK:
+        cutoff = now.timestamp() - 604800
     elif time_scale == TimeScale.MONTH:
         cutoff = now.timestamp() - 2592000
     else:

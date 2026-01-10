@@ -23,7 +23,7 @@ import { RefreshCw, Thermometer, Droplets, Battery, AlertCircle } from 'lucide-r
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const REFRESH_INTERVAL = 30000
 
-type TimeScale = 'hour' | 'day' | 'month' | 'year'
+type TimeScale = 'hour' | 'day' | 'week' | 'month' | 'year'
 
 interface MeterDevice {
   device_id: string
@@ -71,6 +71,8 @@ function formatTimestamp(timestamp: string, timeScale: TimeScale): string {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     case 'day':
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    case 'week':
+      return date.toLocaleDateString([], { weekday: 'short', hour: '2-digit' })
     case 'month':
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
     case 'year':
@@ -86,6 +88,8 @@ function getTimeScaleLabel(timeScale: TimeScale): string {
       return 'Last Hour'
     case 'day':
       return 'Last 24 Hours'
+    case 'week':
+      return 'Last 7 Days'
     case 'month':
       return 'Last 30 Days'
     case 'year':
@@ -140,8 +144,8 @@ function MeterCard({
   const temperatures = chartData.map((d) => d.temperature)
   const tempMin = temperatures.length > 0 ? Math.min(...temperatures) : 15
   const tempMax = temperatures.length > 0 ? Math.max(...temperatures) : 35
-  const yMin = Math.floor(tempMin * 0.9)
-  const yMax = Math.ceil(tempMax * 1.1)
+  const yMin = Math.floor(tempMin * 0.95)
+  const yMax = Math.ceil(tempMax * 1.05)
 
   return (
     <Card className="w-full">
@@ -317,12 +321,13 @@ function App() {
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Time scale" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hour">Last Hour</SelectItem>
-                  <SelectItem value="day">Last 24 Hours</SelectItem>
-                  <SelectItem value="month">Last 30 Days</SelectItem>
-                  <SelectItem value="year">Last Year</SelectItem>
-                </SelectContent>
+                                <SelectContent>
+                                  <SelectItem value="hour">Last Hour</SelectItem>
+                                  <SelectItem value="day">Last 24 Hours</SelectItem>
+                                  <SelectItem value="week">Last 7 Days</SelectItem>
+                                  <SelectItem value="month">Last 30 Days</SelectItem>
+                                  <SelectItem value="year">Last Year</SelectItem>
+                                </SelectContent>
               </Select>
               <Button
                 variant="outline"

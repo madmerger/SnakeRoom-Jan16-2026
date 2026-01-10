@@ -137,10 +137,11 @@ function MeterCard({
     timestamp: reading.timestamp,
   }))
 
-  const tempMin = Math.min(...chartData.map((d) => d.temperature), 15)
-  const tempMax = Math.max(...chartData.map((d) => d.temperature), 35)
-  const yMin = Math.floor(tempMin - 2)
-  const yMax = Math.ceil(tempMax + 2)
+  const temperatures = chartData.map((d) => d.temperature)
+  const tempMin = temperatures.length > 0 ? Math.min(...temperatures) : 15
+  const tempMax = temperatures.length > 0 ? Math.max(...temperatures) : 35
+  const yMin = Math.floor(tempMin * 0.9)
+  const yMax = Math.ceil(tempMax * 1.1)
 
   return (
     <Card className="w-full">
@@ -222,14 +223,14 @@ function MeterCard({
                 }}
               />
               <ReferenceLine y={25} stroke="#94a3b8" strokeDasharray="5 5" />
-              <Line
-                type="monotone"
-                dataKey="temperature"
-                stroke="#ef4444"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
+                            <Line
+                              type="monotone"
+                              dataKey="temperature"
+                              stroke="#ef4444"
+                              strokeWidth={2}
+                              dot={{ r: 2, fill: '#ef4444', strokeWidth: 0 }}
+                              activeDot={{ r: 4 }}
+                            />
             </LineChart>
           </ResponsiveContainer>
         )}

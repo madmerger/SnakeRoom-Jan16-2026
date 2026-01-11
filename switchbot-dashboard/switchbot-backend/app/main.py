@@ -59,6 +59,17 @@ class MeterDevice(BaseModel):
     last_updated: Optional[datetime] = None
 
 
+class LatencyLog(BaseModel):
+    id: Optional[int] = None
+    endpoint: str
+    device_id: Optional[str] = None
+    timestamp: datetime
+    latency_ms: float
+    status_code: int
+    success: bool
+    error_message: Optional[str] = None
+
+
 class DataStore:
     def __init__(self):
         self.devices: dict[str, MeterDevice] = {}
@@ -103,6 +114,26 @@ async def init_database():
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_readings_device_timestamp 
             ON readings(device_id, timestamp)
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS latency_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                endpoint TEXT NOT NULL,
+                device_id TEXT,
+                timestamp TEXT NOT NULL,
+                latency_ms REAL NOT NULL,
+                status_code INTEGER NOT NULL,
+                success INTEGER NOT NULL,
+                error_message TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_latency_logs_timestamp 
+            ON latency_logs(timestamp)
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_latency_logs_endpoint 
+            ON latency_logs(endpoint)
         """)
         await db.commit()
     data_store.db_initialized = True
@@ -195,6 +226,137 @@ async def cleanup_old_readings():
         await db.commit()
 
 
+async def save_latency_log(
+    endpoint: str,
+    latency_ms: float,
+    status_code: int,
+    success: bool,
+    device_id: Optional[str] = None,
+    error_message: Optional[str] = None,
+):
+    """Save a latency log entry to the database."""
+    timestamp = datetime.now(timezone.utc)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO latency_logs (endpoint, device_id, timestamp, latency_ms, status_code, success, error_message)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            endpoint,
+            device_id,
+            timestamp.isoformat(),
+            latency_ms,
+            status_code,
+            1 if success else 0,
+            error_message,
+        ))
+        await db.commit()
+
+
+async def get_latency_logs(
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    endpoint: Optional[str] = None,
+    device_id: Optional[str] = None,
+    limit: int = 100,
+) -> list[LatencyLog]:
+    """Get latency logs from the database with optional filters."""
+    logs = []
+    query = "SELECT * FROM latency_logs WHERE 1=1"
+    params: list = []
+    
+    if start_time:
+        query += " AND timestamp >= ?"
+        params.append(start_time.isoformat())
+    if end_time:
+        query += " AND timestamp <= ?"
+        params.append(end_time.isoformat())
+    if endpoint:
+        query += " AND endpoint = ?"
+        params.append(endpoint)
+    if device_id:
+        query += " AND device_id = ?"
+        params.append(device_id)
+    
+    query += " ORDER BY timestamp DESC LIMIT ?"
+    params.append(limit)
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(query, params) as cursor:
+            async for row in cursor:
+                log = LatencyLog(
+                    id=row["id"],
+                    endpoint=row["endpoint"],
+                    device_id=row["device_id"],
+                    timestamp=datetime.fromisoformat(row["timestamp"]),
+                    latency_ms=row["latency_ms"],
+                    status_code=row["status_code"],
+                    success=bool(row["success"]),
+                    error_message=row["error_message"],
+                )
+                logs.append(log)
+    return logs
+
+
+async def get_latency_stats(
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+) -> dict:
+    """Get aggregated latency statistics."""
+    query = """
+        SELECT 
+            COUNT(*) as total_calls,
+            AVG(latency_ms) as avg_latency,
+            MIN(latency_ms) as min_latency,
+            MAX(latency_ms) as max_latency,
+            SUM(success) as successful_calls
+        FROM latency_logs WHERE 1=1
+    """
+    params: list = []
+    
+    if start_time:
+        query += " AND timestamp >= ?"
+        params.append(start_time.isoformat())
+    if end_time:
+        query += " AND timestamp <= ?"
+        params.append(end_time.isoformat())
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                total_calls = row["total_calls"] or 0
+                successful_calls = row["successful_calls"] or 0
+                return {
+                    "total_calls": total_calls,
+                    "avg_latency_ms": row["avg_latency"],
+                    "min_latency_ms": row["min_latency"],
+                    "max_latency_ms": row["max_latency"],
+                    "successful_calls": successful_calls,
+                    "failed_calls": total_calls - successful_calls,
+                    "success_rate": (successful_calls / total_calls * 100) if total_calls > 0 else 0,
+                }
+    return {
+        "total_calls": 0,
+        "avg_latency_ms": None,
+        "min_latency_ms": None,
+        "max_latency_ms": None,
+        "successful_calls": 0,
+        "failed_calls": 0,
+        "success_rate": 0,
+    }
+
+
+async def cleanup_old_latency_logs():
+    """Remove latency logs older than 30 days to prevent database bloat."""
+    cutoff = datetime.now(timezone.utc).timestamp() - 2592000  # 30 days
+    cutoff_dt = datetime.fromtimestamp(cutoff, tz=timezone.utc)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM latency_logs WHERE timestamp < ?", (cutoff_dt.isoformat(),))
+        await db.commit()
+
+
 def generate_switchbot_headers() -> dict:
     if not SWITCHBOT_TOKEN or not SWITCHBOT_SECRET:
         return {}
@@ -220,7 +382,7 @@ def generate_switchbot_headers() -> dict:
     }
 
 
-async def call_switchbot_api(endpoint: str) -> dict:
+async def call_switchbot_api(endpoint: str, device_id: Optional[str] = None) -> dict:
     if time.time() < data_store.backoff_until:
         raise HTTPException(
             status_code=429,
@@ -231,9 +393,12 @@ async def call_switchbot_api(endpoint: str) -> dict:
     if not headers:
         raise HTTPException(status_code=500, detail="SwitchBot credentials not configured")
     
+    start_time = time.perf_counter()
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f"{SWITCHBOT_API_BASE}{endpoint}", headers=headers)
+            end_time = time.perf_counter()
+            latency_ms = (end_time - start_time) * 1000
             data_store.last_api_call = time.time()
             
             if response.status_code == 429:
@@ -243,21 +408,54 @@ async def call_switchbot_api(endpoint: str) -> dict:
                     MAX_BACKOFF,
                 )
                 data_store.backoff_until = time.time() + backoff_time
+                await save_latency_log(
+                    endpoint=endpoint,
+                    latency_ms=latency_ms,
+                    status_code=429,
+                    success=False,
+                    device_id=device_id,
+                    error_message=f"Rate limited. Backing off for {backoff_time} seconds",
+                )
                 raise HTTPException(
                     status_code=429,
                     detail=f"Rate limited by SwitchBot API. Backing off for {backoff_time} seconds",
                 )
             
             if response.status_code != 200:
+                await save_latency_log(
+                    endpoint=endpoint,
+                    latency_ms=latency_ms,
+                    status_code=response.status_code,
+                    success=False,
+                    device_id=device_id,
+                    error_message=f"SwitchBot API error: {response.text}",
+                )
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"SwitchBot API error: {response.text}",
                 )
             
+            await save_latency_log(
+                endpoint=endpoint,
+                latency_ms=latency_ms,
+                status_code=200,
+                success=True,
+                device_id=device_id,
+            )
             data_store.consecutive_errors = 0
             return response.json()
             
         except httpx.RequestError as e:
+            end_time = time.perf_counter()
+            latency_ms = (end_time - start_time) * 1000
+            await save_latency_log(
+                endpoint=endpoint,
+                latency_ms=latency_ms,
+                status_code=500,
+                success=False,
+                device_id=device_id,
+                error_message=f"Request error: {str(e)}",
+            )
             raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
 
 
@@ -288,7 +486,7 @@ async def fetch_devices() -> list[MeterDevice]:
 
 
 async def fetch_device_status(device_id: str) -> dict:
-    response = await call_switchbot_api(f"/devices/{device_id}/status")
+    response = await call_switchbot_api(f"/devices/{device_id}/status", device_id=device_id)
     
     if response.get("statusCode") != 100:
         raise HTTPException(
@@ -378,8 +576,9 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
     
-    # Cleanup old readings periodically (on shutdown)
+    # Cleanup old data periodically (on shutdown)
     await cleanup_old_readings()
+    await cleanup_old_latency_logs()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -463,6 +662,45 @@ async def get_status():
         "last_api_call": data_store.last_api_call,
         "collection_interval": DATA_COLLECTION_INTERVAL,
     }
+
+
+@app.get("/api/latency-logs")
+async def get_latency_logs_endpoint(
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    endpoint: Optional[str] = None,
+    device_id: Optional[str] = None,
+    limit: int = 100,
+):
+    """Get latency logs for API calls with optional filters."""
+    start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00')) if start_time else None
+    end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00')) if end_time else None
+    
+    logs = await get_latency_logs(
+        start_time=start_dt,
+        end_time=end_dt,
+        endpoint=endpoint,
+        device_id=device_id,
+        limit=limit,
+    )
+    
+    return {
+        "logs": [log.model_dump() for log in logs],
+        "count": len(logs),
+    }
+
+
+@app.get("/api/latency-stats")
+async def get_latency_stats_endpoint(
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+):
+    """Get aggregated latency statistics."""
+    start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00')) if start_time else None
+    end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00')) if end_time else None
+    
+    stats = await get_latency_stats(start_time=start_dt, end_time=end_dt)
+    return stats
 
 
 class ImportReadingData(BaseModel):

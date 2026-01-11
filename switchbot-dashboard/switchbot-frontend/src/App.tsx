@@ -286,7 +286,7 @@ function MeterCard({
 function App() {
   const [meters, setMeters] = useState<MeterDevice[]>([])
   const [status, setStatus] = useState<StatusResponse | null>(null)
-  const [timeScale, setTimeScale] = useState<TimeScale>('hour')
+  const [timeScale, setTimeScale] = useState<TimeScale>('day')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)

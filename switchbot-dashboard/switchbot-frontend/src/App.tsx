@@ -500,26 +500,46 @@ function App() {
                               ) : null
                             })}
                           </div>
-                                                    {/* Right column - starts one row lower */}
-                                                    <div className="space-y-6">
-                                                      {/* Empty spacer to align with second row */}
-                                                      <div className="invisible">
-                                                        <Card className="w-full">
-                                                          <CardHeader className="pb-2">
-                                                            <CardTitle className="text-lg font-semibold">Spacer</CardTitle>
-                                                          </CardHeader>
-                                                          <CardContent>
-                                                            <div className="h-48" />
-                                                          </CardContent>
-                                                        </Card>
-                                                      </div>
-                                                      {SHELF_VIEW_CONFIG.rightColumn.map((name) => {
-                                                        const meter = meters.find((m) => m.device_name === name)
-                                                        return meter ? (
-                                                          <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
-                                                        ) : null
-                                                      })}
-                                                    </div>
+                                                                                                        {/* Right column - starts one row lower */}
+                                                                              <div className="space-y-6">
+                                                                                {/* Empty spacer to align with second row - matches MeterCard structure */}
+                                                                                <div className="invisible" aria-hidden="true">
+                                                                                  <Card className="w-full">
+                                                                                    <CardHeader className="pb-2">
+                                                                                      <div className="flex items-center justify-between">
+                                                                                        <CardTitle className="text-lg font-semibold">Spacer</CardTitle>
+                                                                                        <span className="text-xs text-muted-foreground">Meter</span>
+                                                                                      </div>
+                                                                                      <div className="flex items-center gap-4 text-sm">
+                                                                                        <div className="flex items-center gap-1">
+                                                                                          <Thermometer className="h-4 w-4 text-red-500" />
+                                                                                          <span className="font-medium">0°C</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                          <Droplets className="h-4 w-4 text-blue-500" />
+                                                                                          <span>0%</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                          <Battery className="h-4 w-4 text-green-500" />
+                                                                                          <span>0%</span>
+                                                                                        </div>
+                                                                                      </div>
+                                                                                    </CardHeader>
+                                                                                    <CardContent>
+                                                                                      <div className="h-[200px]" />
+                                                                                      <p className="text-xs text-muted-foreground mt-2">
+                                                                                        Last updated: spacer
+                                                                                      </p>
+                                                                                    </CardContent>
+                                                                                  </Card>
+                                                                                </div>
+                                                                                {SHELF_VIEW_CONFIG.rightColumn.map((name) => {
+                                                                                  const meter = meters.find((m) => m.device_name === name)
+                                                                                  return meter ? (
+                                                                                    <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
+                                                                                  ) : null
+                                                                                })}
+                                                                              </div>
                         </div>
                       </div>
                     )}

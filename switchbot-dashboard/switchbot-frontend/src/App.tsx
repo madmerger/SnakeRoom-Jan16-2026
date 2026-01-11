@@ -99,6 +99,23 @@ function getTimeScaleLabel(timeScale: TimeScale): string {
   }
 }
 
+function getTimeRangeMs(timeScale: TimeScale): number {
+  switch (timeScale) {
+    case 'hour':
+      return 3600 * 1000
+    case 'day':
+      return 86400 * 1000
+    case 'week':
+      return 7 * 86400 * 1000
+    case 'month':
+      return 30 * 86400 * 1000
+    case 'year':
+      return 365 * 86400 * 1000
+    default:
+      return 3600 * 1000
+  }
+}
+
 function MeterCard({
   meter,
   timeScale,
@@ -135,7 +152,7 @@ function MeterCard({
   }, [fetchHistory])
 
   const chartData = history.map((reading) => ({
-    time: formatTimestamp(reading.timestamp, timeScale),
+    time: new Date(reading.timestamp).getTime(),
     temperature: reading.temperature,
     humidity: reading.humidity,
     timestamp: reading.timestamp,
@@ -146,6 +163,19 @@ function MeterCard({
   const tempMax = temperatures.length > 0 ? Math.max(...temperatures) : 35
   const yMin = Math.floor(tempMin * 0.95)
   const yMax = Math.ceil(tempMax * 1.05)
+
+  // Calculate explicit time domain and ticks based on time scale
+  const now = Date.now()
+  const timeRangeMs = getTimeRangeMs(timeScale)
+  const xDomain: [number, number] = [now - timeRangeMs, now]
+  
+  // Generate explicit tick values at regular intervals
+  const tickCount = 10
+  const tickInterval = timeRangeMs / tickCount
+  const xTicks: number[] = []
+  for (let i = 0; i <= tickCount; i++) {
+    xTicks.push(now - timeRangeMs + i * tickInterval)
+  }
 
   return (
     <Card className="w-full">
@@ -195,9 +225,14 @@ function MeterCard({
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="time"
+                type="number"
+                scale="time"
+                domain={xDomain}
+                ticks={xTicks}
                 tick={{ fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
+                tickFormatter={(value) => formatTimestamp(new Date(value).toISOString(), timeScale)}
               />
               <YAxis
                 domain={[yMin, yMax]}
@@ -251,7 +286,7 @@ function MeterCard({
 function App() {
   const [meters, setMeters] = useState<MeterDevice[]>([])
   const [status, setStatus] = useState<StatusResponse | null>(null)
-  const [timeScale, setTimeScale] = useState<TimeScale>('hour')
+  const [timeScale, setTimeScale] = useState<TimeScale>('day')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)

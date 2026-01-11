@@ -168,11 +168,14 @@ function MeterCard({
     timestamp: reading.timestamp,
   }))
 
-  const temperatures = chartData.map((d) => d.temperature)
-  const tempMin = temperatures.length > 0 ? Math.min(...temperatures) : 15
-  const tempMax = temperatures.length > 0 ? Math.max(...temperatures) : 35
-  const yMin = Math.floor(tempMin * 0.95)
-  const yMax = Math.ceil(tempMax * 1.05)
+    const temperatures = chartData.map((d) => d.temperature)
+    const tempMin = temperatures.length > 0 ? Math.min(...temperatures) : 15
+    const tempMax = temperatures.length > 0 ? Math.max(...temperatures) : 35
+    const tempAvg = temperatures.length > 0 
+      ? Math.round((temperatures.reduce((a, b) => a + b, 0) / temperatures.length) * 10) / 10 
+      : 0
+    const yMin = Math.floor(tempMin * 0.95)
+    const yMax = Math.ceil(tempMax * 1.05)
 
   // Calculate explicit time domain and ticks based on time scale
   const now = Date.now()
@@ -244,13 +247,28 @@ function MeterCard({
                 axisLine={false}
                 tickFormatter={(value) => formatTimestamp(new Date(value).toISOString(), timeScale)}
               />
-              <YAxis
-                domain={[yMin, yMax]}
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `${value}°`}
-              />
+                            <YAxis
+                              domain={[yMin, yMax]}
+                              tick={({ x, y, payload }) => {
+                                const isAvg = Math.abs(payload.value - tempAvg) < 0.1
+                                return (
+                                  <text
+                                    x={x}
+                                    y={y}
+                                    dy={4}
+                                    textAnchor="end"
+                                    fontSize={11}
+                                    fill={isAvg ? '#22c55e' : 'currentColor'}
+                                    fontWeight={isAvg ? 'bold' : 'normal'}
+                                  >
+                                    {payload.value}°
+                                  </text>
+                                )
+                              }}
+                              ticks={[yMin, tempAvg, yMax]}
+                              tickLine={false}
+                              axisLine={false}
+                            />
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
@@ -271,9 +289,10 @@ function MeterCard({
                   return null
                 }}
               />
-              <ReferenceLine y={25} stroke="#94a3b8" strokeDasharray="5 5" />
+                            <ReferenceLine y={25} stroke="#94a3b8" strokeDasharray="5 5" />
+                            <ReferenceLine y={tempAvg} stroke="#22c55e" strokeDasharray="4 4" strokeWidth={2} />
                             <Line
-                              type="monotone"
+                              type="linear"
                               dataKey="temperature"
                               stroke="#ef4444"
                               strokeWidth={2}

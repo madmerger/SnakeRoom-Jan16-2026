@@ -42,7 +42,9 @@ async def test_db(temp_db_path: str) -> AsyncGenerator[str, None]:
 
 
 @pytest.fixture
-def reset_data_store() -> Generator[DataStore, None, None]:
+async def reset_data_store(tmp_path) -> AsyncGenerator[DataStore, None]:
+    import app.main as main_module
+    
     original_devices = data_store.devices.copy()
     original_history = data_store.history.copy()
     original_last_api_call = data_store.last_api_call
@@ -50,6 +52,7 @@ def reset_data_store() -> Generator[DataStore, None, None]:
     original_consecutive_errors = data_store.consecutive_errors
     original_is_collecting = data_store.is_collecting
     original_db_initialized = data_store.db_initialized
+    original_db_path = main_module.DB_PATH
     
     data_store.devices = {}
     data_store.history = {}
@@ -58,6 +61,9 @@ def reset_data_store() -> Generator[DataStore, None, None]:
     data_store.consecutive_errors = 0
     data_store.is_collecting = False
     data_store.db_initialized = False
+    
+    main_module.DB_PATH = str(tmp_path / "test.db")
+    await init_database()
     
     yield data_store
     
@@ -68,6 +74,7 @@ def reset_data_store() -> Generator[DataStore, None, None]:
     data_store.consecutive_errors = original_consecutive_errors
     data_store.is_collecting = original_is_collecting
     data_store.db_initialized = original_db_initialized
+    main_module.DB_PATH = original_db_path
 
 
 @pytest.fixture

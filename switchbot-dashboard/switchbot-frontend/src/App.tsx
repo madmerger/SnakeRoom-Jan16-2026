@@ -24,6 +24,16 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const REFRESH_INTERVAL = 30000
 
 type TimeScale = 'hour' | 'day' | 'week' | 'month' | 'year'
+type ViewType = 'default' | 'shelf'
+
+// Shelf View configuration - maps device names to their positions
+const SHELF_VIEW_CONFIG = {
+  topRow: ['外', 'Study'],
+  leftColumn: ['バロン', 'おていさん', 'アワコ', 'ネズミ'],
+  middleColumn: ['蛇棚', 'ジャガ百万石', '中華棚'],
+  rightColumn: ['ゴンタ', '夢男'],
+  excluded: ['Bedroom Meter', 'Living Meter'],
+}
 
 interface MeterDevice {
   device_id: string
@@ -286,8 +296,9 @@ function MeterCard({
 function App() {
   const [meters, setMeters] = useState<MeterDevice[]>([])
   const [status, setStatus] = useState<StatusResponse | null>(null)
-  const [timeScale, setTimeScale] = useState<TimeScale>('day')
-  const [loading, setLoading] = useState(true)
+    const [timeScale, setTimeScale] = useState<TimeScale>('day')
+    const [viewType, setViewType] = useState<ViewType>('default')
+    const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
@@ -348,31 +359,49 @@ function App() {
                   : 'API credentials not configured'}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Select
-                value={timeScale}
-                onValueChange={(value) => setTimeScale(value as TimeScale)}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Time scale" />
-                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="hour">Last Hour</SelectItem>
-                                  <SelectItem value="day">Last 24 Hours</SelectItem>
-                                  <SelectItem value="week">Last 7 Days</SelectItem>
-                                  <SelectItem value="month">Last 30 Days</SelectItem>
-                                  <SelectItem value="year">Last Year</SelectItem>
-                                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={triggerRefresh}
-                disabled={refreshing || !status?.configured}
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex rounded-lg border bg-muted p-1">
+                            <Button
+                              variant={viewType === 'default' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setViewType('default')}
+                              className="px-3"
+                            >
+                              Default
+                            </Button>
+                            <Button
+                              variant={viewType === 'shelf' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setViewType('shelf')}
+                              className="px-3"
+                            >
+                              Shelf
+                            </Button>
+                          </div>
+                          <Select
+                            value={timeScale}
+                            onValueChange={(value) => setTimeScale(value as TimeScale)}
+                          >
+                            <SelectTrigger className="w-40">
+                              <SelectValue placeholder="Time scale" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="hour">Last Hour</SelectItem>
+                              <SelectItem value="day">Last 24 Hours</SelectItem>
+                              <SelectItem value="week">Last 7 Days</SelectItem>
+                              <SelectItem value="month">Last 30 Days</SelectItem>
+                              <SelectItem value="year">Last Year</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={triggerRefresh}
+                            disabled={refreshing || !status?.configured}
+                          >
+                            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                          </Button>
+                        </div>
           </div>
         </div>
       </header>
@@ -422,25 +451,100 @@ function App() {
               </div>
             </CardContent>
           </Card>
-        ) : (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Showing: {getTimeScaleLabel(timeScale)}
-              </p>
-              {lastRefresh && (
-                <p className="text-sm text-muted-foreground">
-                  Last refresh: {lastRefresh.toLocaleTimeString()}
-                </p>
-              )}
-            </div>
-            <div className="grid gap-6">
-              {meters.map((meter) => (
-                <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
-              ))}
-            </div>
-          </div>
-        )}
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        Showing: {getTimeScaleLabel(timeScale)}
+                      </p>
+                      {lastRefresh && (
+                        <p className="text-sm text-muted-foreground">
+                          Last refresh: {lastRefresh.toLocaleTimeString()}
+                        </p>
+                      )}
+                    </div>
+                    {viewType === 'default' ? (
+                      <div className="grid gap-6">
+                        {meters.map((meter) => (
+                          <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Top row - full width: 外 and Study */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {SHELF_VIEW_CONFIG.topRow.map((name) => {
+                            const meter = meters.find((m) => m.device_name === name)
+                            return meter ? (
+                              <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
+                            ) : null
+                          })}
+                        </div>
+                        {/* Three columns below */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {/* Left column */}
+                          <div className="space-y-6">
+                            {SHELF_VIEW_CONFIG.leftColumn.map((name) => {
+                              const meter = meters.find((m) => m.device_name === name)
+                              return meter ? (
+                                <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
+                              ) : null
+                            })}
+                          </div>
+                          {/* Middle column */}
+                          <div className="space-y-6">
+                            {SHELF_VIEW_CONFIG.middleColumn.map((name) => {
+                              const meter = meters.find((m) => m.device_name === name)
+                              return meter ? (
+                                <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
+                              ) : null
+                            })}
+                          </div>
+                                                                                                        {/* Right column - starts one row lower */}
+                                                                              <div className="space-y-6">
+                                                                                {/* Empty spacer to align with second row - matches MeterCard structure */}
+                                                                                <div className="invisible" aria-hidden="true">
+                                                                                  <Card className="w-full">
+                                                                                    <CardHeader className="pb-2">
+                                                                                      <div className="flex items-center justify-between">
+                                                                                        <CardTitle className="text-lg font-semibold">Spacer</CardTitle>
+                                                                                        <span className="text-xs text-muted-foreground">Meter</span>
+                                                                                      </div>
+                                                                                      <div className="flex items-center gap-4 text-sm">
+                                                                                        <div className="flex items-center gap-1">
+                                                                                          <Thermometer className="h-4 w-4 text-red-500" />
+                                                                                          <span className="font-medium">0°C</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                          <Droplets className="h-4 w-4 text-blue-500" />
+                                                                                          <span>0%</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                          <Battery className="h-4 w-4 text-green-500" />
+                                                                                          <span>0%</span>
+                                                                                        </div>
+                                                                                      </div>
+                                                                                    </CardHeader>
+                                                                                    <CardContent>
+                                                                                      <div className="h-[200px]" />
+                                                                                      <p className="text-xs text-muted-foreground mt-2">
+                                                                                        Last updated: spacer
+                                                                                      </p>
+                                                                                    </CardContent>
+                                                                                  </Card>
+                                                                                </div>
+                                                                                {SHELF_VIEW_CONFIG.rightColumn.map((name) => {
+                                                                                  const meter = meters.find((m) => m.device_name === name)
+                                                                                  return meter ? (
+                                                                                    <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
+                                                                                  ) : null
+                                                                                })}
+                                                                              </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
         {status?.is_rate_limited && (
           <Card className="mt-6 border-yellow-500">

@@ -500,15 +500,26 @@ function App() {
                               ) : null
                             })}
                           </div>
-                          {/* Right column */}
-                          <div className="space-y-6">
-                            {SHELF_VIEW_CONFIG.rightColumn.map((name) => {
-                              const meter = meters.find((m) => m.device_name === name)
-                              return meter ? (
-                                <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
-                              ) : null
-                            })}
-                          </div>
+                                                    {/* Right column - starts one row lower */}
+                                                    <div className="space-y-6">
+                                                      {/* Empty spacer to align with second row */}
+                                                      <div className="invisible">
+                                                        <Card className="w-full">
+                                                          <CardHeader className="pb-2">
+                                                            <CardTitle className="text-lg font-semibold">Spacer</CardTitle>
+                                                          </CardHeader>
+                                                          <CardContent>
+                                                            <div className="h-48" />
+                                                          </CardContent>
+                                                        </Card>
+                                                      </div>
+                                                      {SHELF_VIEW_CONFIG.rightColumn.map((name) => {
+                                                        const meter = meters.find((m) => m.device_name === name)
+                                                        return meter ? (
+                                                          <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
+                                                        ) : null
+                                                      })}
+                                                    </div>
                         </div>
                       </div>
                     )}

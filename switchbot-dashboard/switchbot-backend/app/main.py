@@ -463,3 +463,70 @@ async def get_status():
         "last_api_call": data_store.last_api_call,
         "collection_interval": DATA_COLLECTION_INTERVAL,
     }
+
+
+class ImportReadingData(BaseModel):
+    timestamp: str
+    temperature: float
+    humidity: int
+    battery: Optional[int] = None
+
+
+class ImportDeviceData(BaseModel):
+    device_id: str
+    device_name: str
+    device_type: str
+    hub_device_id: Optional[str] = None
+    current_temperature: Optional[float] = None
+    current_humidity: Optional[int] = None
+    battery: Optional[int] = None
+    last_updated: Optional[str] = None
+    readings: list[ImportReadingData] = []
+
+
+class ImportData(BaseModel):
+    devices: list[ImportDeviceData]
+
+
+@app.post("/api/import")
+async def import_data(data: ImportData):
+    """Import historical data from another backend instance."""
+    imported_devices = 0
+    imported_readings = 0
+    
+    for device_data in data.devices:
+        # Create or update device
+        device = MeterDevice(
+            device_id=device_data.device_id,
+            device_name=device_data.device_name,
+            device_type=device_data.device_type,
+            hub_device_id=device_data.hub_device_id,
+            current_temperature=device_data.current_temperature,
+            current_humidity=device_data.current_humidity,
+            battery=device_data.battery,
+            last_updated=datetime.fromisoformat(device_data.last_updated.replace('Z', '+00:00')) if device_data.last_updated else None,
+        )
+        
+        data_store.devices[device.device_id] = device
+        if device.device_id not in data_store.history:
+            data_store.history[device.device_id] = []
+        
+        await save_device_to_db(device)
+        imported_devices += 1
+        
+        # Import readings
+        for reading_data in device_data.readings:
+            reading = MeterReading(
+                timestamp=datetime.fromisoformat(reading_data.timestamp.replace('Z', '+00:00')),
+                temperature=reading_data.temperature,
+                humidity=reading_data.humidity,
+                battery=reading_data.battery,
+            )
+            await save_reading_to_db(device.device_id, reading)
+            imported_readings += 1
+    
+    return {
+        "status": "ok",
+        "imported_devices": imported_devices,
+        "imported_readings": imported_readings,
+    }

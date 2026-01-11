@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
+import aiosqlite
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -17,6 +18,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 load_dotenv()
+
+# Database path - use /data/app.db for persistent volume in production
+DB_PATH = os.getenv("DB_PATH", "/data/app.db" if os.path.exists("/data") else "app.db")
 
 SWITCHBOT_API_BASE = "https://api.switch-bot.com/v1.1"
 SWITCHBOT_TOKEN = os.getenv("SWITCHBOT_TOKEN", "")
@@ -64,9 +68,131 @@ class DataStore:
         self.consecutive_errors: int = 0
         self.is_collecting: bool = False
         self.collection_task: Optional[asyncio.Task] = None
+        self.db_initialized: bool = False
 
 
 data_store = DataStore()
+
+
+async def init_database():
+    """Initialize SQLite database with required tables."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS devices (
+                device_id TEXT PRIMARY KEY,
+                device_name TEXT NOT NULL,
+                device_type TEXT NOT NULL,
+                hub_device_id TEXT,
+                current_temperature REAL,
+                current_humidity INTEGER,
+                battery INTEGER,
+                last_updated TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS readings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                temperature REAL NOT NULL,
+                humidity INTEGER NOT NULL,
+                battery INTEGER,
+                FOREIGN KEY (device_id) REFERENCES devices(device_id)
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_readings_device_timestamp 
+            ON readings(device_id, timestamp)
+        """)
+        await db.commit()
+    data_store.db_initialized = True
+
+
+async def load_devices_from_db():
+    """Load devices from database into memory cache."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM devices") as cursor:
+            async for row in cursor:
+                device = MeterDevice(
+                    device_id=row["device_id"],
+                    device_name=row["device_name"],
+                    device_type=row["device_type"],
+                    hub_device_id=row["hub_device_id"],
+                    current_temperature=row["current_temperature"],
+                    current_humidity=row["current_humidity"],
+                    battery=row["battery"],
+                    last_updated=datetime.fromisoformat(row["last_updated"]) if row["last_updated"] else None,
+                )
+                data_store.devices[device.device_id] = device
+                data_store.history[device.device_id] = []
+
+
+async def save_device_to_db(device: MeterDevice):
+    """Save or update a device in the database."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT OR REPLACE INTO devices 
+            (device_id, device_name, device_type, hub_device_id, current_temperature, current_humidity, battery, last_updated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            device.device_id,
+            device.device_name,
+            device.device_type,
+            device.hub_device_id,
+            device.current_temperature,
+            device.current_humidity,
+            device.battery,
+            device.last_updated.isoformat() if device.last_updated else None,
+        ))
+        await db.commit()
+
+
+async def save_reading_to_db(device_id: str, reading: MeterReading):
+    """Save a reading to the database."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO readings (device_id, timestamp, temperature, humidity, battery)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            device_id,
+            reading.timestamp.isoformat(),
+            reading.temperature,
+            reading.humidity,
+            reading.battery,
+        ))
+        await db.commit()
+
+
+async def get_readings_from_db(device_id: str, cutoff_timestamp: float) -> list[MeterReading]:
+    """Get readings from database after a cutoff timestamp."""
+    cutoff_dt = datetime.fromtimestamp(cutoff_timestamp, tz=timezone.utc)
+    readings = []
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("""
+            SELECT * FROM readings 
+            WHERE device_id = ? AND timestamp >= ?
+            ORDER BY timestamp ASC
+        """, (device_id, cutoff_dt.isoformat())) as cursor:
+            async for row in cursor:
+                reading = MeterReading(
+                    timestamp=datetime.fromisoformat(row["timestamp"]),
+                    temperature=row["temperature"],
+                    humidity=row["humidity"],
+                    battery=row["battery"],
+                )
+                readings.append(reading)
+    return readings
+
+
+async def cleanup_old_readings():
+    """Remove readings older than 1 year to prevent database bloat."""
+    cutoff = datetime.now(timezone.utc).timestamp() - 31536000  # 1 year
+    cutoff_dt = datetime.fromtimestamp(cutoff, tz=timezone.utc)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM readings WHERE timestamp < ?", (cutoff_dt.isoformat(),))
+        await db.commit()
 
 
 def generate_switchbot_headers() -> dict:
@@ -212,6 +338,10 @@ async def collect_data():
                     )
                     data_store.history[device_id].append(reading)
                     
+                    # Save to database for persistence
+                    await save_device_to_db(data_store.devices[device_id])
+                    await save_reading_to_db(device_id, reading)
+                    
                     max_readings = 365 * 24 * 30
                     if len(data_store.history[device_id]) > max_readings:
                         data_store.history[device_id] = data_store.history[device_id][-max_readings:]
@@ -234,6 +364,10 @@ async def background_collector():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize database and load existing data
+    await init_database()
+    await load_devices_from_db()
+    
     if SWITCHBOT_TOKEN and SWITCHBOT_SECRET:
         data_store.collection_task = asyncio.create_task(background_collector())
     yield
@@ -243,6 +377,9 @@ async def lifespan(app: FastAPI):
             await data_store.collection_task
         except asyncio.CancelledError:
             pass
+    
+    # Cleanup old readings periodically (on shutdown)
+    await cleanup_old_readings()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -275,10 +412,9 @@ async def get_meters():
 
 @app.get("/api/meters/{device_id}/history")
 async def get_meter_history(device_id: str, time_scale: TimeScale = TimeScale.HOUR):
-    if device_id not in data_store.history:
+    if device_id not in data_store.devices:
         raise HTTPException(status_code=404, detail="Device not found")
     
-    history = data_store.history[device_id]
     now = datetime.now(timezone.utc)
     
     if time_scale == TimeScale.HOUR:
@@ -292,10 +428,8 @@ async def get_meter_history(device_id: str, time_scale: TimeScale = TimeScale.HO
     else:
         cutoff = now.timestamp() - 31536000
     
-    filtered_history = [
-        reading for reading in history
-        if reading.timestamp.timestamp() >= cutoff
-    ]
+    # Read from database for persistent history
+    filtered_history = await get_readings_from_db(device_id, cutoff)
     
     return {
         "device_id": device_id,

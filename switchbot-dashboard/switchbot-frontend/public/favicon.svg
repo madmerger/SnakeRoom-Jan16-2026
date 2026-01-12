@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Thermometer body -->
+  <rect x="12" y="4" width="8" height="18" rx="4" fill="#ffffff" stroke="#ef4444" stroke-width="2"/>
+  <!-- Thermometer bulb -->
+  <circle cx="16" cy="24" r="6" fill="#ef4444"/>
+  <!-- Mercury column -->
+  <rect x="14" y="10" width="4" height="14" fill="#ef4444"/>
+  <!-- Temperature marks -->
+  <line x1="20" y1="8" x2="23" y2="8" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="20" y1="12" x2="22" y2="12" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="20" y1="16" x2="23" y2="16" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

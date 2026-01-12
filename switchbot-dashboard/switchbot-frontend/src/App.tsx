@@ -20,7 +20,21 @@ import {
 } from '@/components/ui/select'
 import { RefreshCw, Thermometer, Droplets, Battery, AlertCircle, Download } from 'lucide-react'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+function getApiUrl(): string {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  const hostname = window.location.hostname
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:8000'
+  }
+  if (hostname === 'snakeroom-frontend.fly.dev') {
+    return 'https://snakeroom.fly.dev'
+  }
+  return ''
+}
+
+const API_URL = getApiUrl()
 const REFRESH_INTERVAL = 30000
 
 type TimeScale = 'hour' | 'day' | 'week' | 'month' | 'year'

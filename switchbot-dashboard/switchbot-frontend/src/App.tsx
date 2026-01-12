@@ -595,7 +595,7 @@ function App() {
         <div className="container mx-auto px-4 py-4">
           <p className="text-xs text-muted-foreground text-center">
             Data is collected every {status?.collection_interval || 120} seconds.
-            Temperature history is stored in memory and resets on backend restart.
+            Temperature history is persisted in a database.
           </p>
           <p className="text-xs text-muted-foreground text-center mt-1">
             Backend: {API_URL}

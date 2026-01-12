@@ -13,7 +13,7 @@
 #   Set SWITCHBOT_BACKEND_URL environment variable or edit the default below
 #   Set BACKUP_DIR environment variable to change the backup directory
 
-BACKEND_URL="${SWITCHBOT_BACKEND_URL:-https://app-vsdfalit.fly.dev}"
+BACKEND_URL="${SWITCHBOT_BACKEND_URL:-https://snakeroom.fly.dev}"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/switchbot_backups}"
 DEFAULT_INTERVAL=3600  # 1 hour in seconds
 
@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --help              Show this help message"
             echo ""
             echo "Environment variables:"
-            echo "  SWITCHBOT_BACKEND_URL  Backend URL (default: https://app-vsdfalit.fly.dev)"
+            echo "  SWITCHBOT_BACKEND_URL  Backend URL (default: https://snakeroom.fly.dev)"
             echo "  BACKUP_DIR             Backup directory (default: ~/switchbot_backups)"
             exit 0
             ;;

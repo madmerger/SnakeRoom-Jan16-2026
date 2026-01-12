@@ -375,7 +375,7 @@ function App() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold">SwitchBot Temperature Dashboard v1.1</h1>
+              <h1 className="text-2xl font-bold">SnakeRoom Temperature monitor</h1>
               <p className="text-sm text-muted-foreground">
                 {status?.configured
                   ? `Monitoring ${status.meters_count} meter${status.meters_count !== 1 ? 's' : ''}`
@@ -531,46 +531,15 @@ function App() {
                               ) : null
                             })}
                           </div>
-                                                                                                        {/* Right column - starts one row lower */}
-                                                                              <div className="space-y-6">
-                                                                                {/* Empty spacer to align with second row - matches MeterCard structure */}
-                                                                                <div className="invisible" aria-hidden="true">
-                                                                                  <Card className="w-full">
-                                                                                    <CardHeader className="pb-2">
-                                                                                      <div className="flex items-center justify-between">
-                                                                                        <CardTitle className="text-lg font-semibold">Spacer</CardTitle>
-                                                                                        <span className="text-xs text-muted-foreground">Meter</span>
-                                                                                      </div>
-                                                                                      <div className="flex items-center gap-4 text-sm">
-                                                                                        <div className="flex items-center gap-1">
-                                                                                          <Thermometer className="h-4 w-4 text-red-500" />
-                                                                                          <span className="font-medium">0°C</span>
-                                                                                        </div>
-                                                                                        <div className="flex items-center gap-1">
-                                                                                          <Droplets className="h-4 w-4 text-blue-500" />
-                                                                                          <span>0%</span>
-                                                                                        </div>
-                                                                                        <div className="flex items-center gap-1">
-                                                                                          <Battery className="h-4 w-4 text-green-500" />
-                                                                                          <span>0%</span>
-                                                                                        </div>
-                                                                                      </div>
-                                                                                    </CardHeader>
-                                                                                    <CardContent>
-                                                                                      <div className="h-[200px]" />
-                                                                                      <p className="text-xs text-muted-foreground mt-2">
-                                                                                        Last updated: spacer
-                                                                                      </p>
-                                                                                    </CardContent>
-                                                                                  </Card>
-                                                                                </div>
-                                                                                {SHELF_VIEW_CONFIG.rightColumn.map((name) => {
-                                                                                  const meter = meters.find((m) => m.device_name === name)
-                                                                                  return meter ? (
-                                                                                    <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
-                                                                                  ) : null
-                                                                                })}
-                                                                              </div>
+                            {/* Right column */}
+                          <div className="space-y-6">
+                            {SHELF_VIEW_CONFIG.rightColumn.map((name) => {
+                              const meter = meters.find((m) => m.device_name === name)
+                              return meter ? (
+                                <MeterCard key={meter.device_id} meter={meter} timeScale={timeScale} />
+                              ) : null
+                            })}
+                          </div>
                         </div>
                       </div>
                     )}

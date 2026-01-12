@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { RefreshCw, Thermometer, Droplets, Battery, AlertCircle } from 'lucide-react'
+import { RefreshCw, Thermometer, Droplets, Battery, AlertCircle, Download } from 'lucide-react'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const REFRESH_INTERVAL = 30000
@@ -359,6 +359,10 @@ function App() {
     }
   }
 
+  const downloadBackup = () => {
+    window.open(`${API_URL}/api/backup`, '_blank')
+  }
+
   useEffect(() => {
     fetchMeters()
     const interval = setInterval(fetchMeters, REFRESH_INTERVAL)
@@ -419,6 +423,14 @@ function App() {
                             disabled={refreshing || !status?.configured}
                           >
                             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={downloadBackup}
+                            title="Download database backup"
+                          >
+                            <Download className="h-4 w-4" />
                           </Button>
                         </div>
           </div>

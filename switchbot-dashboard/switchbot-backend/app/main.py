@@ -15,6 +15,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 load_dotenv()
@@ -768,3 +769,19 @@ async def import_data(data: ImportData):
         "imported_devices": imported_devices,
         "imported_readings": imported_readings,
     }
+
+
+@app.get("/api/backup")
+async def backup_database():
+    """Download the SQLite database file for backup purposes."""
+    if not os.path.exists(DB_PATH):
+        raise HTTPException(status_code=404, detail="Database file not found")
+    
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    filename = f"switchbot_backup_{timestamp}.db"
+    
+    return FileResponse(
+        path=DB_PATH,
+        filename=filename,
+        media_type="application/x-sqlite3",
+    )

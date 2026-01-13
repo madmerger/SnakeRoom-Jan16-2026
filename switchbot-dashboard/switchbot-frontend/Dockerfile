@@ -1,32 +1,14 @@
-# Build stage
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package.json package-lock.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Build argument for API URL
-ARG VITE_API_URL=https://snakeroom.fly.dev
-ENV VITE_API_URL=$VITE_API_URL
-
-# Build the application
-RUN npm run build
-
-# Production stage
+# Retro frontend - no build tools needed!
+# Just serve static HTML/CSS/JS files like it's 2020
 FROM nginx:alpine
 
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy static files directly - no build step needed!
+# This is how we did it before webpack/vite took over
+COPY index.html /usr/share/nginx/html/
+COPY public/ /usr/share/nginx/html/
 
 # Expose port 8080 (Fly.io default)
 EXPOSE 8080

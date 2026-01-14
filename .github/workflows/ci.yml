@@ -7,11 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  # Frontend is now a static HTML file with jQuery + Bootstrap 3
-  # No build step needed - just static files served by nginx
-  # Keeping this job as a simple validation that the index.html exists
+  # Frontend is now a React + TypeScript + Vite application
   frontend:
-    name: Frontend Static Files Check
+    name: Frontend Build & Lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,10 +19,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify static files exist
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: switchbot-dashboard/switchbot-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build output
         run: |
-          test -f index.html && echo "index.html exists"
-          test -f public/favicon.svg && echo "favicon.svg exists"
+          test -d dist && echo "dist directory exists"
+          test -f dist/index.html && echo "dist/index.html exists"
           test -f Dockerfile && echo "Dockerfile exists"
           test -f nginx.conf && echo "nginx.conf exists"
 

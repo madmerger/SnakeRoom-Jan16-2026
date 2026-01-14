@@ -70,8 +70,13 @@ export default function Chart({ deviceId, timeScale }: ChartProps) {
 
   if (loading) {
     return (
-      <div className="h-48 flex items-center justify-center bg-white border border-gray-200 rounded">
-        <div className="text-gray-400">Loading chart...</div>
+      <div className="h-48 flex items-center justify-center">
+        <div className="text-slate-500 flex items-center gap-2">
+          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Loading chart...
+        </div>
       </div>
     );
   }
@@ -85,13 +90,16 @@ export default function Chart({ deviceId, timeScale }: ChartProps) {
       {
         label: 'Temperature (C)',
         data: temperatures,
-        borderColor: '#dc2626',
-        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249, 115, 22, 0.15)',
         borderWidth: 2,
-        pointRadius: 2,
-        pointBackgroundColor: '#dc2626',
+        pointRadius: 3,
+        pointBackgroundColor: '#f97316',
+        pointBorderColor: '#f97316',
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#fb923c',
         fill: true,
-        tension: 0.1,
+        tension: 0.4,
       },
     ],
   };
@@ -106,15 +114,17 @@ export default function Chart({ deviceId, timeScale }: ChartProps) {
       tooltip: {
         mode: 'index' as const,
         intersect: false,
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        titleColor: '#333',
-        bodyColor: '#666',
-        borderColor: '#ddd',
+        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        titleColor: '#f1f5f9',
+        bodyColor: '#94a3b8',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
+        padding: 12,
+        cornerRadius: 8,
         callbacks: {
           label: function(context: TooltipItem<'line'>) {
             const value = context.parsed.y;
-            return value !== null ? `${value.toFixed(1)}C` : '';
+            return value !== null ? `${value.toFixed(1)}°C` : '';
           },
         },
       },
@@ -124,27 +134,29 @@ export default function Chart({ deviceId, timeScale }: ChartProps) {
         display: true,
         grid: {
           display: true,
-          color: 'rgba(0, 0, 0, 0.1)',
+          color: 'rgba(255, 255, 255, 0.05)',
         },
         ticks: {
           maxTicksLimit: 8,
           font: {
             size: 10,
           },
+          color: '#64748b',
         },
       },
       y: {
         display: true,
         grid: {
           display: true,
-          color: 'rgba(0, 0, 0, 0.1)',
+          color: 'rgba(255, 255, 255, 0.05)',
         },
         ticks: {
           font: {
             size: 10,
           },
+          color: '#64748b',
           callback: function(value) {
-            return `${value}`;
+            return `${value}°`;
           },
         },
       },
@@ -152,7 +164,7 @@ export default function Chart({ deviceId, timeScale }: ChartProps) {
   };
 
   return (
-    <div className="h-48 bg-white border border-gray-200 rounded p-2">
+    <div className="h-48">
       <Line data={data} options={options} />
     </div>
   );

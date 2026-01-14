@@ -23,17 +23,17 @@ export default function Controls({
   };
 
   return (
-    <div className="bg-gray-100 border border-gray-200 rounded p-4 mb-5">
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">View:</label>
-          <div className="flex rounded overflow-hidden border border-gray-300">
+    <div className="glass-card rounded-2xl p-5 mb-6">
+      <div className="flex flex-wrap items-center gap-5">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-slate-400">View:</label>
+          <div className="flex rounded-xl overflow-hidden bg-slate-800/50">
             <button
               type="button"
-              className={`px-3 py-1.5 text-sm flex items-center gap-1 ${
+              className={`px-4 py-2.5 text-sm flex items-center gap-2 transition-all duration-200 ${
                 viewType === 'default'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  ? 'btn-primary text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
               }`}
               onClick={() => setViewType('default')}
             >
@@ -44,10 +44,10 @@ export default function Controls({
             </button>
             <button
               type="button"
-              className={`px-3 py-1.5 text-sm flex items-center gap-1 ${
+              className={`px-4 py-2.5 text-sm flex items-center gap-2 transition-all duration-200 ${
                 viewType === 'shelf'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                  ? 'btn-primary text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
               }`}
               onClick={() => setViewType('shelf')}
             >
@@ -59,13 +59,13 @@ export default function Controls({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label htmlFor="timeScale" className="text-sm font-medium">
+        <div className="flex items-center gap-3">
+          <label htmlFor="timeScale" className="text-sm font-medium text-slate-400">
             Time Range:
           </label>
           <select
             id="timeScale"
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white"
+            className="bg-slate-800/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
             value={timeScale}
             onChange={(e) => setTimeScale(e.target.value as TimeScale)}
           >
@@ -79,7 +79,7 @@ export default function Controls({
 
         <button
           type="button"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm flex items-center gap-2 disabled:opacity-50"
+          className="btn-primary text-white px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 disabled:opacity-50"
           onClick={onRefresh}
           disabled={isRefreshing}
         >
@@ -101,7 +101,7 @@ export default function Controls({
 
         <button
           type="button"
-          className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-1.5 rounded text-sm flex items-center gap-2"
+          className="btn-secondary text-slate-300 px-5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2"
           onClick={handleBackup}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

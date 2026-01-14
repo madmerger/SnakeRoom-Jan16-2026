@@ -1,0 +1,12 @@
+{
+  "name": "switchbot-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SnakeRoom Temperature Monitor - Static HTML Dashboard",
+  "scripts": {
+    "dev": "npx http-server . -p 5173 -c-1",
+    "build": "mkdir -p dist && cp index.html dist/ && cp -r public/* dist/",
+    "lint": "echo 'Static HTML frontend - no linting required'",
+    "preview": "npx http-server dist -p 4173 -c-1"
+  }
+}

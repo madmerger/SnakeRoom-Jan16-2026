@@ -1,23 +1,23 @@
-## Summary
+## 概要
+<!-- PRの背景・目的・概要 -->
 
-<!-- Brief description of the changes -->
+### 関連タスク
+<!-- もしあれば、関連するIssueやチケットのリンクを貼る。Issueの場合は、「#<IssueNumber>」でリンクできる -->
 
-## Changes Made
+## やったこと
+<!-- このPRで何をしたのか？ -->
 
-<!-- List the key changes in this PR -->
+### 影響範囲
+<!-- このPRはどこに影響を与えるのか、フロントエンド・バックエンド、など -->
 
-## Testing
+## テスト
+<!-- 実施したテスト方法と結果 -->
 
-<!-- Describe how the changes were tested -->
+### 人間がするべきテスト
+<!-- マージ前に人間がするべきチェックのリスト -->
 
-## Screenshots
+### ステージング環境
+<!-- テスト用ステージング環境のURL -->
 
-<!-- If applicable, add screenshots to help explain your changes -->
-
-## Link to Devin run
-
-<!-- Devin will automatically populate this -->
-
-## Requested by
-
-<!-- Devin will automatically populate this with the user's name and GitHub username -->
+## 備考
+<!-- レビュワーへの伝達事項や残しておきたい情報 -->

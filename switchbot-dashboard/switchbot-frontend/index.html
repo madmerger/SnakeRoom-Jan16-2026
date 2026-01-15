@@ -363,6 +363,9 @@
     <!-- Bootstrap 3 JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     
+    <!-- Moment.js (required for Chart.js 2.x time scale) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    
     <!-- Chart.js 2.x (old version for retro feel) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
 
@@ -646,6 +649,42 @@
             });
         }
         
+        // Get time display format based on time scale
+        function getTimeDisplayFormat() {
+            switch (timeScale) {
+                case 'hour':
+                    return 'HH:mm';
+                case 'day':
+                    return 'HH:mm';
+                case 'week':
+                    return 'ddd HH:mm';
+                case 'month':
+                    return 'MMM D';
+                case 'year':
+                    return 'MMM D';
+                default:
+                    return 'MMM D HH:mm';
+            }
+        }
+        
+        // Get time unit based on time scale
+        function getTimeUnit() {
+            switch (timeScale) {
+                case 'hour':
+                    return 'minute';
+                case 'day':
+                    return 'hour';
+                case 'week':
+                    return 'day';
+                case 'month':
+                    return 'day';
+                case 'year':
+                    return 'month';
+                default:
+                    return 'hour';
+            }
+        }
+        
         // Render chart using Chart.js 2.x
         function renderChart(deviceId, history) {
             var canvasId = 'chart-' + deviceId;
@@ -660,32 +699,23 @@
             
             var ctx = $canvas[0].getContext('2d');
             
-            // Prepare data
-            var labels = [];
-            var temperatures = [];
-            var humidities = [];
+            // Prepare data as {x: timestamp, y: value} objects for time scale
+            var temperatureData = [];
             
             $.each(history, function(index, reading) {
-                labels.push(formatTimestamp(reading.timestamp));
-                temperatures.push(reading.temperature);
-                humidities.push(reading.humidity);
+                temperatureData.push({
+                    x: new Date(reading.timestamp),
+                    y: reading.temperature
+                });
             });
             
-            // Calculate average temperature
-            var tempSum = 0;
-            for (var i = 0; i < temperatures.length; i++) {
-                tempSum += temperatures[i];
-            }
-            var tempAvg = temperatures.length > 0 ? tempSum / temperatures.length : 0;
-            
-            // Create chart
+            // Create chart with time scale
             charts[deviceId] = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
                     datasets: [{
                         label: 'Temperature (°C)',
-                        data: temperatures,
+                        data: temperatureData,
                         borderColor: '#d9534f',
                         backgroundColor: 'rgba(217, 83, 79, 0.1)',
                         borderWidth: 2,
@@ -702,10 +732,21 @@
                     },
                     scales: {
                         xAxes: [{
+                            type: 'time',
                             display: true,
                             gridLines: {
                                 display: true,
                                 color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            time: {
+                                unit: getTimeUnit(),
+                                displayFormats: {
+                                    minute: 'HH:mm',
+                                    hour: 'HH:mm',
+                                    day: 'MMM D',
+                                    month: 'MMM YYYY'
+                                },
+                                tooltipFormat: getTimeDisplayFormat()
                             },
                             ticks: {
                                 maxTicksLimit: 8,

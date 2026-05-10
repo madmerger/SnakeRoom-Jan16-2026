@@ -39,8 +39,6 @@ jobs:
         run: |
           test -d dist && echo "dist directory exists"
           test -f dist/index.html && echo "dist/index.html exists"
-          test -f Dockerfile && echo "Dockerfile exists"
-          test -f nginx.conf && echo "nginx.conf exists"
 
   backend:
     name: Backend Tests

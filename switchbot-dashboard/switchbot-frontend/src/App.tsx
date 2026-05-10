@@ -20,7 +20,7 @@ function App() {
   const [meters, setMeters] = useState<MeterDevice[]>([]);
   const [status, setStatus] = useState<Status | null>(null);
   const [timeScale, setTimeScale] = useState<TimeScale>('day');
-  const [viewType, setViewType] = useState<ViewType>('shelf');
+  const [viewType, setViewType] = useState<ViewType>('default');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);

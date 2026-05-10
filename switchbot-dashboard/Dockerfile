@@ -22,8 +22,11 @@ RUN poetry config virtualenvs.create true && \
 # Copy backend application code
 COPY switchbot-backend/app/ ./app/
 
-# Copy frontend build output
-COPY --from=frontend-build /app/frontend/dist ./static/
+# Copy legacy (jQuery + Bootstrap 3) frontend to root: served at /
+COPY switchbot-frontend-legacy/ ./static/
+
+# Copy modern React build output to /modern subdir: served at /modern/
+COPY --from=frontend-build /app/frontend/dist ./static/modern/
 
 EXPOSE 8000
 

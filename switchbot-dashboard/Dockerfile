@@ -1,12 +1,4 @@
-# Stage 1: Build frontend
-FROM node:18-alpine AS frontend-build
-WORKDIR /app/frontend
-COPY switchbot-frontend/package*.json ./
-RUN npm ci
-COPY switchbot-frontend/ ./
-RUN VITE_API_URL="" npm run build
-
-# Stage 2: Build and run backend (serves frontend static files too)
+# Build and run backend (serves legacy frontend static files)
 FROM python:3.12-slim
 WORKDIR /app
 
@@ -24,9 +16,6 @@ COPY switchbot-backend/app/ ./app/
 
 # Copy legacy (jQuery + Bootstrap 3) frontend to root: served at /
 COPY switchbot-frontend-legacy/ ./static/
-
-# Copy modern React build output to /modern subdir: served at /modern/
-COPY --from=frontend-build /app/frontend/dist ./static/modern/
 
 EXPOSE 8000
 

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SnakeRoom Dashboard</title>
+
+  <!-- Bootstrap 3.3.7 CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+
+  <style>
+    body {
+      background-color: #f5f5f5;
+      padding-top: 70px;
+    }
+    .navbar-status {
+      margin-top: 15px;
+      margin-right: 15px;
+    }
+    .meter-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .meter-stats .label {
+      font-size: 14px;
+      margin-right: 6px;
+      padding: 4px 8px;
+    }
+    .meter-stats {
+      margin-bottom: 10px;
+    }
+    .meter-chart-wrap {
+      position: relative;
+      height: 200px;
+    }
+    .meter-last-updated {
+      color: #777;
+      font-size: 12px;
+      margin-top: 8px;
+      margin-bottom: 0;
+    }
+    footer {
+      text-align: center;
+      color: #777;
+      font-size: 12px;
+      margin: 30px 0 20px 0;
+    }
+    #loading {
+      text-align: center;
+      padding: 40px 0;
+    }
+    .shelf-section {
+      margin-bottom: 20px;
+    }
+    .panel-default > .panel-heading {
+      background-color: #f8f8f8;
+    }
+    .device-type-tag {
+      font-size: 11px;
+      color: #777;
+      background-color: #eee;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-default navbar-fixed-top">
+    <div class="container-fluid">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="#">SnakeRoom Dashboard</a>
+      </div>
+      <div class="navbar-status pull-right">
+        <span id="connection-status" class="label label-success">Connected</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid">
+
+    <!-- Controls -->
+    <div class="panel panel-default">
+      <div class="panel-body">
+        <form class="form-inline">
+          <div class="form-group" style="margin-right: 20px;">
+            <label style="margin-right: 8px;">View:</label>
+            <div class="btn-group" role="group">
+              <button type="button" id="btn-default-view" class="btn btn-default">Default</button>
+              <button type="button" id="btn-shelf-view" class="btn btn-primary">Shelf</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-right: 20px;">
+            <label for="time-scale-select" style="margin-right: 8px;">Time Range:</label>
+            <select id="time-scale-select" class="form-control">
+              <option value="hour">Last Hour</option>
+              <option value="day" selected>Last 24 Hours</option>
+              <option value="week">Last 7 Days</option>
+              <option value="month">Last 30 Days</option>
+              <option value="year">Last Year</option>
+            </select>
+          </div>
+          <button type="button" id="btn-refresh" class="btn btn-primary">Refresh Data</button>
+          <button type="button" id="btn-backup" class="btn btn-default">Download Backup</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="status-bar" class="alert alert-info" style="display: none;">
+      <span id="status-meters-count">Monitoring 0 meters</span>
+      <span class="pull-right" id="status-last-refresh"></span>
+    </div>
+
+    <!-- Rate Limit Warning -->
+    <div id="rate-limit-warning" class="alert alert-warning" style="display: none;">
+      <strong>Rate Limited.</strong>
+      <span id="rate-limit-text">SwitchBot API rate limit reached.</span>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading">
+      <p class="text-muted">Loading temperature data...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error" class="alert alert-danger" style="display: none;">
+      <strong>Error.</strong> <span id="error-text">Failed to fetch data.</span>
+    </div>
+
+    <!-- Meters Container -->
+    <div id="meters-container"></div>
+
+    <!-- Footer -->
+    <footer>
+      SnakeRoom Dashboard v1.0 (Legacy) - Built with jQuery + Bootstrap 3
+    </footer>
+
+  </div>
+
+  <!-- jQuery 1.12.x (intentionally old) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+
+  <!-- Bootstrap 3.3.7 JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+  <!-- Chart.js 2.9.x (legacy v2 API) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+
+  <script>
+    // ============================================================
+    // Global variables (legacy var-style declarations)
+    // ============================================================
+
+    // Set the production backend URL here.
+    var API_URL = 'https://snakeroom.fly.dev';
+
+    var REFRESH_INTERVAL = 30000;
+    var currentViewType = 'shelf';
+    var currentTimeScale = 'day';
+    var metersData = [];
+    var statusData = null;
+    var charts = {}; // device_id -> Chart instance map
+
+    var SHELF_VIEW_CONFIG = {
+      topRow: ['\u5916', 'Study'],
+      leftColumn: ['\u30d0\u30ed\u30f3', '\u304a\u3066\u3044\u3055\u3093', '\u30a2\u30ef\u30b3', '\u30cd\u30ba\u30df'],
+      middleColumn: ['\u86c7\u68da', '\u30b8\u30e3\u30ac\u767e\u4e07\u77f3', '\u4e2d\u83ef\u68da'],
+      rightColumn: ['\u30b4\u30f3\u30bf', '\u5922\u7537'],
+      excluded: ['Bedroom Meter', 'Living Meter']
+    };
+
+    // ============================================================
+    // Utility functions
+    // ============================================================
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function pad2(n) {
+      return n < 10 ? '0' + n : '' + n;
+    }
+
+    // Ported from src/components/Chart.tsx (lines 33-49)
+    function formatTimestamp(timestamp, timeScale) {
+      var date = new Date(timestamp);
+      var hours = pad2(date.getHours());
+      var minutes = pad2(date.getMinutes());
+      var dayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+      var monthShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()];
+      var dayNum = date.getDate();
+
+      switch (timeScale) {
+        case 'hour':
+          return hours + ':' + minutes;
+        case 'day':
+          return hours + ':' + minutes;
+        case 'week':
+          return dayShort + ' ' + hours;
+        case 'month':
+          return monthShort + ' ' + dayNum;
+        case 'year':
+          return monthShort + ' ' + dayNum;
+        default:
+          return date.toLocaleString();
+      }
+    }
+
+    function findMeterByName(name) {
+      for (var i = 0; i < metersData.length; i++) {
+        if (metersData[i].device_name === name) {
+          return metersData[i];
+        }
+      }
+      return null;
+    }
+
+    // ============================================================
+    // API calls (jQuery $.ajax)
+    // ============================================================
+
+    function fetchMeters(onSuccess, onError) {
+      $.ajax({
+        url: API_URL + '/api/meters',
+        type: 'GET',
+        dataType: 'json',
+        success: function(data) {
+          if (onSuccess) onSuccess(data);
+        },
+        error: function(xhr, status, err) {
+          if (onError) onError(err || status);
+        }
+      });
+    }
+
+    function fetchStatus(onSuccess, onError) {
+      $.ajax({
+        url: API_URL + '/api/status',
+        type: 'GET',
+        dataType: 'json',
+        success: function(data) {
+          if (onSuccess) onSuccess(data);
+        },
+        error: function(xhr, status, err) {
+          if (onError) onError(err || status);
+        }
+      });
+    }
+
+    function fetchHistory(deviceId, timeScale, callback) {
+      $.ajax({
+        url: API_URL + '/api/meters/' + encodeURIComponent(deviceId) + '/history',
+        type: 'GET',
+        data: { time_scale: timeScale },
+        dataType: 'json',
+        success: function(data) {
+          callback(null, data);
+        },
+        error: function(xhr, status, err) {
+          callback(err || status, null);
+        }
+      });
+    }
+
+    function triggerRefresh(callback) {
+      $.ajax({
+        url: API_URL + '/api/meters/refresh',
+        type: 'POST',
+        success: function(data) {
+          if (callback) callback(null, data);
+        },
+        error: function(xhr, status, err) {
+          if (callback) callback(err || status, null);
+        }
+      });
+    }
+
+    // ============================================================
+    // Top-level data load (nested callbacks, no Promise.all)
+    // ============================================================
+
+    function fetchData() {
+      fetchMeters(function(metersResp) {
+        fetchStatus(function(statusResp) {
+          metersData = (metersResp && metersResp.meters) ? metersResp.meters : [];
+          statusData = statusResp;
+
+          $('#loading').hide();
+          $('#error').hide();
+          $('#connection-status').removeClass('label-danger').addClass('label-success').text('Connected');
+
+          updateStatusBar();
+          renderMeters();
+          renderCharts();
+        }, function(err) {
+          showError('Failed to fetch status: ' + err);
+        });
+      }, function(err) {
+        showError('Failed to fetch meters: ' + err);
+      });
+    }
+
+    function showError(msg) {
+      $('#loading').hide();
+      $('#error-text').text(msg);
+      $('#error').show();
+      $('#connection-status').removeClass('label-success').addClass('label-danger').text('Disconnected');
+    }
+
+    // ============================================================
+    // Status bar / rate limit
+    // ============================================================
+
+    function updateStatusBar() {
+      if (!statusData) {
+        $('#status-bar').hide();
+        return;
+      }
+
+      var count = statusData.meters_count || 0;
+      var noun = count === 1 ? 'meter' : 'meters';
+      $('#status-meters-count').text('Monitoring ' + count + ' ' + noun);
+
+      var now = new Date();
+      var refreshText = 'Last refresh: ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds());
+      $('#status-last-refresh').text(refreshText);
+      $('#status-bar').show();
+
+      if (statusData.is_rate_limited) {
+        var remaining = statusData.backoff_remaining || 0;
+        $('#rate-limit-text').text('SwitchBot API rate limit reached. Retry in ' + remaining + ' seconds.');
+        $('#rate-limit-warning').show();
+      } else {
+        $('#rate-limit-warning').hide();
+      }
+    }
+
+    // ============================================================
+    // Rendering
+    // ============================================================
+
+    function renderMeters() {
+      if (currentViewType === 'shelf') {
+        renderShelfView();
+      } else {
+        renderDefaultView();
+      }
+    }
+
+    function renderDefaultView() {
+      var html = '<div class="row">';
+      for (var i = 0; i < metersData.length; i++) {
+        html += '<div class="col-md-4 col-sm-6">' + createMeterPanel(metersData[i]) + '</div>';
+      }
+      html += '</div>';
+      $('#meters-container').html(html);
+    }
+
+    function renderShelfView() {
+      var html = '';
+
+      // Top row: 2 meters, col-md-6 each
+      var topMeters = [];
+      for (var i = 0; i < SHELF_VIEW_CONFIG.topRow.length; i++) {
+        var m = findMeterByName(SHELF_VIEW_CONFIG.topRow[i]);
+        if (m) topMeters.push(m);
+      }
+      if (topMeters.length > 0) {
+        html += '<div class="row shelf-section">';
+        for (var t = 0; t < topMeters.length; t++) {
+          html += '<div class="col-md-6">' + createMeterPanel(topMeters[t]) + '</div>';
+        }
+        html += '</div>';
+      }
+
+      // Bottom: 3 columns col-md-4 each
+      var leftMeters = [];
+      for (var l = 0; l < SHELF_VIEW_CONFIG.leftColumn.length; l++) {
+        var ml = findMeterByName(SHELF_VIEW_CONFIG.leftColumn[l]);
+        if (ml) leftMeters.push(ml);
+      }
+      var middleMeters = [];
+      for (var mi = 0; mi < SHELF_VIEW_CONFIG.middleColumn.length; mi++) {
+        var mm = findMeterByName(SHELF_VIEW_CONFIG.middleColumn[mi]);
+        if (mm) middleMeters.push(mm);
+      }
+      var rightMeters = [];
+      for (var r = 0; r < SHELF_VIEW_CONFIG.rightColumn.length; r++) {
+        var mr = findMeterByName(SHELF_VIEW_CONFIG.rightColumn[r]);
+        if (mr) rightMeters.push(mr);
+      }
+
+      html += '<div class="row shelf-section">';
+
+      html += '<div class="col-md-4">';
+      for (var li = 0; li < leftMeters.length; li++) {
+        html += createMeterPanel(leftMeters[li]);
+      }
+      html += '</div>';
+
+      html += '<div class="col-md-4">';
+      for (var mii = 0; mii < middleMeters.length; mii++) {
+        html += createMeterPanel(middleMeters[mii]);
+      }
+      html += '</div>';
+
+      html += '<div class="col-md-4">';
+      for (var ri = 0; ri < rightMeters.length; ri++) {
+        html += createMeterPanel(rightMeters[ri]);
+      }
+      html += '</div>';
+
+      html += '</div>';
+
+      $('#meters-container').html(html);
+    }
+
+    function createMeterPanel(meter) {
+      var deviceId = escapeHtml(meter.device_id);
+      var deviceName = escapeHtml(meter.device_name);
+      var deviceType = escapeHtml(meter.device_type);
+
+      var html = '';
+      html += '<div class="panel panel-default">';
+      html += '  <div class="panel-heading">';
+      html += '    <div class="meter-panel-header">';
+      html += '      <strong>' + deviceName + '</strong>';
+      html += '      <span class="device-type-tag">' + deviceType + '</span>';
+      html += '    </div>';
+      html += '  </div>';
+      html += '  <div class="panel-body">';
+      html += '    <div class="meter-stats">';
+
+      if (meter.current_temperature !== null && meter.current_temperature !== undefined) {
+        html += '<span class="label label-danger">' + escapeHtml(meter.current_temperature) + '\u00b0C</span>';
+      }
+      if (meter.current_humidity !== null && meter.current_humidity !== undefined) {
+        html += '<span class="label label-info">' + escapeHtml(meter.current_humidity) + '%</span>';
+      }
+      if (meter.battery !== null && meter.battery !== undefined) {
+        html += '<span class="label label-success">' + escapeHtml(meter.battery) + '%</span>';
+      }
+
+      html += '    </div>';
+      html += '    <div class="meter-chart-wrap">';
+      html += '      <canvas id="chart-' + deviceId + '"></canvas>';
+      html += '    </div>';
+
+      if (meter.last_updated) {
+        var d = new Date(meter.last_updated);
+        var lastUpdatedStr = d.toLocaleString();
+        html += '    <p class="meter-last-updated">Last updated: ' + escapeHtml(lastUpdatedStr) + '</p>';
+      }
+
+      html += '  </div>';
+      html += '</div>';
+      return html;
+    }
+
+    // ============================================================
+    // Chart rendering (Chart.js v2 API)
+    // ============================================================
+
+    function renderCharts() {
+      for (var i = 0; i < metersData.length; i++) {
+        (function(meter) {
+          fetchHistory(meter.device_id, currentTimeScale, function(err, data) {
+            if (err) {
+              return;
+            }
+            var history = (data && data.history) ? data.history : [];
+            renderSingleChart(meter.device_id, history);
+          });
+        })(metersData[i]);
+      }
+    }
+
+    function renderSingleChart(deviceId, history) {
+      var canvas = document.getElementById('chart-' + deviceId);
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+
+      var labels = [];
+      var temperatures = [];
+      for (var i = 0; i < history.length; i++) {
+        labels.push(formatTimestamp(history[i].timestamp, currentTimeScale));
+        temperatures.push(history[i].temperature);
+      }
+
+      // Destroy existing chart instance before re-creating
+      if (charts[deviceId]) {
+        charts[deviceId].destroy();
+        delete charts[deviceId];
+      }
+
+      charts[deviceId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Temperature (C)',
+            data: temperatures,
+            borderColor: '#d9534f',
+            backgroundColor: 'rgba(217, 83, 79, 0.15)',
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: '#d9534f',
+            pointBorderColor: '#d9534f',
+            pointHoverRadius: 5,
+            pointHoverBackgroundColor: '#5bc0de',
+            fill: true,
+            lineTension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          legend: {
+            display: false
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(tooltipItem) {
+                var v = tooltipItem.yLabel;
+                if (v === null || v === undefined) return '';
+                return v.toFixed(1) + '\u00b0C';
+              }
+            }
+          },
+          scales: {
+            xAxes: [{
+              display: true,
+              gridLines: {
+                display: true,
+                color: 'rgba(0, 0, 0, 0.05)'
+              },
+              ticks: {
+                maxTicksLimit: 8,
+                fontSize: 10,
+                fontColor: '#777'
+              }
+            }],
+            yAxes: [{
+              display: true,
+              gridLines: {
+                display: true,
+                color: 'rgba(0, 0, 0, 0.05)'
+              },
+              ticks: {
+                fontSize: 10,
+                fontColor: '#777',
+                callback: function(value) {
+                  return value + '\u00b0';
+                }
+              }
+            }]
+          }
+        }
+      });
+    }
+
+    // ============================================================
+    // View toggle helpers
+    // ============================================================
+
+    function setViewType(viewType) {
+      currentViewType = viewType;
+      if (viewType === 'shelf') {
+        $('#btn-shelf-view').removeClass('btn-default').addClass('btn-primary');
+        $('#btn-default-view').removeClass('btn-primary').addClass('btn-default');
+      } else {
+        $('#btn-default-view').removeClass('btn-default').addClass('btn-primary');
+        $('#btn-shelf-view').removeClass('btn-primary').addClass('btn-default');
+      }
+      // Destroy charts before re-rendering DOM (canvases will be removed)
+      destroyAllCharts();
+      renderMeters();
+      renderCharts();
+    }
+
+    function destroyAllCharts() {
+      for (var key in charts) {
+        if (charts.hasOwnProperty(key) && charts[key]) {
+          charts[key].destroy();
+        }
+      }
+      charts = {};
+    }
+
+    // ============================================================
+    // Init
+    // ============================================================
+
+    $(document).ready(function() {
+      fetchData();
+      setInterval(fetchData, REFRESH_INTERVAL);
+
+      $('#btn-default-view').click(function() {
+        setViewType('default');
+      });
+
+      $('#btn-shelf-view').click(function() {
+        setViewType('shelf');
+      });
+
+      $('#time-scale-select').change(function() {
+        currentTimeScale = $(this).val();
+        destroyAllCharts();
+        renderCharts();
+      });
+
+      $('#btn-refresh').click(function() {
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('Refreshing...');
+        triggerRefresh(function(err) {
+          if (err) {
+            showError('Failed to refresh: ' + err);
+          }
+          fetchData();
+          $btn.prop('disabled', false).text('Refresh Data');
+        });
+      });
+
+      $('#btn-backup').click(function() {
+        window.open(API_URL + '/api/backup', '_blank');
+      });
+    });
+  </script>
+
+</body>
+</html>

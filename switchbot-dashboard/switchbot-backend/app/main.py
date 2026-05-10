@@ -17,7 +17,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -790,14 +790,28 @@ async def backup_database():
     )
 
 
-# Serve frontend static files if the static directory exists
+# Serve frontend static files if the static directory exists.
+# Layout under static/:
+#   index.html              -> legacy (jQuery + Bootstrap 3) frontend served at "/"
+#   modern/index.html       -> React frontend served at "/modern/"
+#   modern/assets/...       -> React build assets (referenced by /modern/ as base)
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+MODERN_DIR = STATIC_DIR / "modern"
 if STATIC_DIR.is_dir():
-    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+    if MODERN_DIR.is_dir():
+        @app.get("/modern", include_in_schema=False)
+        async def redirect_modern():
+            return RedirectResponse(url="/modern/", status_code=308)
+
+        app.mount(
+            "/modern",
+            StaticFiles(directory=MODERN_DIR, html=True),
+            name="modern",
+        )
 
     @app.get("/{full_path:path}")
     async def serve_spa(request: Request, full_path: str):
-        """Serve the frontend SPA for any non-API route."""
+        """Serve the legacy frontend at root for any non-API, non-/modern route."""
         file_path = (STATIC_DIR / full_path).resolve()
         if not file_path.is_relative_to(STATIC_DIR.resolve()):
             return FileResponse(STATIC_DIR / "index.html")

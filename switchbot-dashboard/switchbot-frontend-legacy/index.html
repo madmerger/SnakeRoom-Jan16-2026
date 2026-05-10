@@ -74,6 +74,10 @@
       <div class="navbar-header">
         <a class="navbar-brand" href="#">SnakeRoom Dashboard</a>
       </div>
+      <ul class="nav navbar-nav">
+        <li class="active"><a href="/">Legacy</a></li>
+        <li><a href="/modern/">Modern UI</a></li>
+      </ul>
       <div class="navbar-status pull-right">
         <span id="connection-status" class="label label-success">Connected</span>
       </div>
@@ -155,8 +159,9 @@
     // Global variables (legacy var-style declarations)
     // ============================================================
 
-    // Set the production backend URL here.
-    var API_URL = 'https://snakeroom.fly.dev';
+    // When served from the FastAPI backend (same origin), API_URL stays empty.
+    // When opened directly as a file:// URL, fall back to the production backend.
+    var API_URL = (window.location.protocol === 'file:') ? 'https://snakeroom.fly.dev' : '';
 
     var REFRESH_INTERVAL = 30000;
     var currentViewType = 'shelf';

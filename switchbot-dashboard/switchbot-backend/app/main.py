@@ -17,7 +17,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -798,7 +798,9 @@ if STATIC_DIR.is_dir():
     @app.get("/{full_path:path}")
     async def serve_spa(request: Request, full_path: str):
         """Serve the frontend SPA for any non-API route."""
-        file_path = STATIC_DIR / full_path
+        file_path = (STATIC_DIR / full_path).resolve()
+        if not str(file_path).startswith(str(STATIC_DIR.resolve())):
+            return FileResponse(STATIC_DIR / "index.html")
         if full_path and file_path.is_file():
             return FileResponse(file_path)
         return FileResponse(STATIC_DIR / "index.html")

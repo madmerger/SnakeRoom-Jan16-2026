@@ -1,4 +1,4 @@
-app = "snakeroom"
+app = "snakeroom-jan16-2026"
 primary_region = "nrt"
 
 [build]

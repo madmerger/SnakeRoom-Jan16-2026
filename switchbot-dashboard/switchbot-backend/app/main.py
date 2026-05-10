@@ -13,9 +13,12 @@ from typing import Optional
 import aiosqlite
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 load_dotenv()
@@ -785,3 +788,19 @@ async def backup_database():
         filename=filename,
         media_type="application/x-sqlite3",
     )
+
+
+# Serve frontend static files if the static directory exists
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+if STATIC_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(request: Request, full_path: str):
+        """Serve the frontend SPA for any non-API route."""
+        file_path = (STATIC_DIR / full_path).resolve()
+        if not file_path.is_relative_to(STATIC_DIR.resolve()):
+            return FileResponse(STATIC_DIR / "index.html")
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(STATIC_DIR / "index.html")

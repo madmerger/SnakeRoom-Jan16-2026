@@ -799,7 +799,7 @@ if STATIC_DIR.is_dir():
     async def serve_spa(request: Request, full_path: str):
         """Serve the frontend SPA for any non-API route."""
         file_path = (STATIC_DIR / full_path).resolve()
-        if not str(file_path).startswith(str(STATIC_DIR.resolve())):
+        if not file_path.is_relative_to(STATIC_DIR.resolve()):
             return FileResponse(STATIC_DIR / "index.html")
         if full_path and file_path.is_file():
             return FileResponse(file_path)

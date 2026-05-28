@@ -5,7 +5,6 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     name: str
-    role: str = "営業員"
 
 
 class UserResponse(BaseModel):

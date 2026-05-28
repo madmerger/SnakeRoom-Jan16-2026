@@ -60,7 +60,7 @@ def _score_experience(customer: CustomerProfile, product: ProductProfile) -> tup
 def _score_investment_ratio(customer: CustomerProfile, product: ProductProfile) -> tuple[float, str | None]:
     if customer.total_assets <= 0:
         if product.min_investment_amount > 0:
-            return 30, "総資産が0のため、投資商品は不適合です"
+            return 50, "総資産が0のため、投資商品は不適合です"
         return 0, None
     ratio = product.min_investment_amount / customer.total_assets
     if ratio > 0.5:

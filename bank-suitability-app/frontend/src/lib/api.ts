@@ -15,7 +15,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
     headers["Authorization"] = `Bearer ${token}`;
   }
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (res.status === 401) {
+  if (res.status === 401 && !path.startsWith("/auth/login")) {
     if (typeof window !== "undefined") {
       localStorage.removeItem("token");
       window.location.href = "/login";
